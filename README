@@ -1,0 +1,6 @@
+This psi4 plugin is intended to test the performance 
+of the frozen virtual natural orbitals methods in
+calculating coupled cluster properties.
+To build this plugin:
+1. `psi4 --compile-plugin` 
+2. make

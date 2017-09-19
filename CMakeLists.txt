@@ -1,7 +1,7 @@
 #
 # @BEGIN LICENSE
 #
-# fvno by Psi4 Developer, a plugin to:
+# test by Psi4 Developer, a plugin to:
 #
 # Psi4: an open-source quantum chemistry software package
 #
@@ -35,3 +35,4 @@ project(fvno CXX)
 find_package(psi4 1.1 REQUIRED)
 
 add_psi4_plugin(fvno mointegrals.cc)
+

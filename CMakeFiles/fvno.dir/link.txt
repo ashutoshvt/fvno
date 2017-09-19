@@ -1,1 +1,0 @@
-/opt/apps/gcc/5.2.0/bin/g++  -fPIC  -march=native -fopenmp  -shared  -o fvno.so CMakeFiles/fvno.dir/mointegrals.cc.o -Wl,-rpath,/home/akumar1/newriver/installed/psi4/latest_psi4/lib/psi4 /home/akumar1/newriver/installed/psi4/latest_psi4/lib/psi4/core.so 
