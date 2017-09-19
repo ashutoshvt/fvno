@@ -1,0 +1,6 @@
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CMakeLists.txt
+__pycache__/
+timer.dat
