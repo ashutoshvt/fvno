@@ -1,4 +1,3 @@
-
 # PYTHONPATH must include directory above plugin directory.
 #     Define either externally or here, then import plugin.
 sys.path.insert(0, './..')
@@ -21,6 +20,16 @@ set fvno {
   print 1
 }
 
-energy('fvno')
+e,wfn = energy('fvno', return_wfn='true')
+cctransort(wfn)
+ccenergy(wfn)
+cchbar(wfn)
+set_global_option('WFN','CCSD') # cclambda expects a correlated wfn method         
+set_global_option('DERTYPE','RESPONSE') # to account for extra terms in cclambda needed for response 
+cclambda(wfn)
+set ccresponse{
+ property polarizability
+}
+ccresponse(wfn)
 
 fvno.exampleFN()
