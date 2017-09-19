@@ -35,12 +35,10 @@
 #include "psi4/libmints/wavefunction.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/liboptions/liboptions.h"
-
-
-// This allows us to be lazy in getting the spaces in DPD calls
-#define ID(x) ints.DPD_ID(x)
+#include "transform.h"
 
 namespace psi{ namespace fvno{
+
 
 extern "C" int
 read_options(std::string name, Options &options)
@@ -73,70 +71,8 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     // Quickly check that there are no open shell orbitals here...
     int nirrep  = ref_wfn->nirrep();
 
-    // For now, we'll just transform for closed shells and generate all integrals.  For more elaborate use of the
-    // LibTrans object, check out the plugin_mp2 example in the test suite.
-    std::vector<std::shared_ptr<MOSpace> > spaces;
-    spaces.push_back(MOSpace::occ);
-    spaces.push_back(MOSpace::vir);
-    IntegralTransform ints(ref_wfn, spaces, IntegralTransform::Restricted, IntegralTransform::DPDOnly);
-    ints.transform_tei(MOSpace::occ, MOSpace::vir, MOSpace::occ, MOSpace::vir);
-    // Use the IntegralTransform object's DPD instance, for convenience
-    dpd_set_default(ints.get_dpd_id());
 
-    dpdbuf4 K,D,D1,D2;
-    psio->open(PSIF_LIBTRANS_DPD, PSIO_OPEN_OLD);
-    global_dpd_->buf4_init(&K, PSIF_LIBTRANS_DPD, 0, ID("[O,V]"), ID("[O,V]"), ID("[O,V]"), ID("[O,V]"), 0, "MO Ints (OV|OV)");
-    psio->open(PSIF_CC_DINTS, PSIO_OPEN_OLD);
-    global_dpd_->buf4_sort(&K, PSIF_CC_DINTS, prqs, ID("[O,O]"), ID("[V,V]"), "D <ij|ab>");
-    global_dpd_->buf4_close(&K);
-    psio->close(PSIF_LIBTRANS_DPD, 1);
-
-
-
-
-
-
-
-    /*
-     * Now, loop over the DPD buffer, printing the integrals
-     */
-    /*dpdbuf4 K;
-    psio->open(PSIF_LIBTRANS_DPD, PSIO_OPEN_OLD);
-    // To only process the permutationally unique integrals, change the ID("[A,A]") to ID("[A>=A]+")
-    global_dpd_->buf4_init(&K, PSIF_LIBTRANS_DPD, 0, ID("[A,A]"), ID("[A,A]"),
-                  ID("[A>=A]+"), ID("[A>=A]+"), 0, "MO Ints (AA|AA)");
-    for(int h = 0; h < nirrep; ++h){
-        global_dpd_->buf4_mat_irrep_init(&K, h);
-        global_dpd_->buf4_mat_irrep_rd(&K, h);
-        for(int pq = 0; pq < K.params->rowtot[h]; ++pq){
-            int p = K.params->roworb[h][pq][0];
-            int q = K.params->roworb[h][pq][1];
-            int psym = K.params->psym[p];
-            int qsym = K.params->qsym[q];
-            int prel = p - K.params->poff[psym];
-            int qrel = q - K.params->qoff[qsym];
-            for(int rs = 0; rs < K.params->coltot[h]; ++rs){
-                int r = K.params->colorb[h][rs][0];
-                int s = K.params->colorb[h][rs][1];
-                int rsym = K.params->rsym[r];
-                int ssym = K.params->ssym[s];
-                int rrel = r - K.params->roff[rsym];
-                int srel = s - K.params->soff[ssym];
-                // Print out the absolute orbital numbers, the relative (within irrep)
-                // numbers, the symmetries, and the integral itself
-                psi::outfile->Printf("(%2d %2d | %2d %2d) = %16.10f, "
-                                 "symmetries = (%1d %1d | %1d %1d), "
-                                 "relative indices = (%2d %2d | %2d %2d)\n",
-                                 p, q, r, s, K.matrix[h][pq][rs],
-                                 psym, qsym, rsym, ssym,
-                                 prel, qrel, rrel, srel);
-            }
-        }
-        global_dpd_->buf4_mat_irrep_close(&K, h);
-    }
-    global_dpd_->buf4_close(&K);
-    psio->close(PSIF_LIBTRANS_DPD, PSIO_OPEN_OLD);
-*/
+    transform_to_mo(ref_wfn, psio);
 
     return ref_wfn;
 }

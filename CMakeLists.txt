@@ -34,5 +34,6 @@ project(fvno CXX)
 
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(fvno mointegrals.cc)
+add_psi4_plugin(fvno mointegrals.cc transform.cc)
+#add_psi4_plugin(fvno mointegrals.cc)
 
