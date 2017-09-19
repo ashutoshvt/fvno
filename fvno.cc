@@ -35,7 +35,7 @@
 #include "psi4/libmints/wavefunction.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/liboptions/liboptions.h"
-#include "transform.h"
+#include "fvno.h"
 
 namespace psi{ namespace fvno{
 
@@ -72,7 +72,20 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     int nirrep  = ref_wfn->nirrep();
 
 
+    // Transform to the MO basis <ij|ab> type integrals 
     transform_to_mo(ref_wfn, psio);
+
+    /* construct the virtual-virtual block of ground state MP2 
+     second order reduced density matrix. In spin orbitals,
+     D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
+     In spin adpated form: 
+     D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
+    */
+
+    gs_mp2_density_vv();
+
+
+
 
     return ref_wfn;
 }

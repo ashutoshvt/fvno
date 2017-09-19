@@ -31,6 +31,7 @@
 """Plugin docstring.
 
 """
+print("I am inside __init__.py")
 __version__ = '0.1'
 __author__  = 'Psi4 Developer'
 

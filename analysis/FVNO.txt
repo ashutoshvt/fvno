@@ -1,0 +1,552 @@
+I had a discussion about Dr. Crawford today about the NSF proposal 
+that he has to submit by the end of this month. He wants to talk about 
+coupled cluster based reduced scaling methods for properties. Here are some
+of the points that we have observed with regards to the performance of 
+these methods for properties:
+
+1. All these reduced scaling methods focus on electron correlation 
+   in the ground state wavefunction. The most important terms to 
+   describe these correlation effects are obviously the doubles 
+   amplitudes in the CC theory. Thus, an obvious choice for any reduced 
+   scaling method would be to come up with a basis which creates sparsity in 
+   the doubles amplitudes. Ideally, this transformation should happen in 
+   a computationally cheaper method whose doubles amplitudes can serve as a guess
+   for more accurate methods like CCSD. Naturally, MP2 is the first 
+   such method that comes to our mind. Thus, only the significant regions 
+   of the MP2 double amplitudes can be used as a guess for CCSD, while the
+   sparse regions can be described using MP2.
+  
+2. These techniques have been shown to be very effective for correlation energies
+   and one can remove as much as 40-50 % of the virtual space with errors of less than
+   1 kcal/mol. However, we have shown that the extension of these approaches for 
+   calculating higer order properties which involve calculations of the derivatives of 
+   the wavefunction wrt external electric and magnetic fields yield poor results. 
+   The results are not very unsurprising as the reduced scaling basis (RSB) doesn't 
+   know anything about the derivative of the ground state wavefunction amplitudes. 
+
+3. How to make the RSB aware of the derivative of the ground state amplitudes. We need to 
+   define a perturbation aware 'density' and diagonalize it to create sparsity in the 
+   perturbed amplitudes. Should we define a perturbed density based on the perturbed
+   doubles amplitudes. We defined one such density by taking the derivative of ground
+   state MP2 density but unfortunately we observed only minor improvements.
+   
+4. One of the possible drawbacks of the above perturbed density approach could be
+   the way we defined our perturbed density. In the coupled cluster response 
+   formalism used for caluclating higher-order response properties, an expectation 
+   value of a one electron operator usually an electric or magnetic dipole is expanded
+   in different orders of perturbation with respect to an external field unlike energetics, 
+   where we take the expectation value of the hamiltionian which is a 2-body operator.
+   This makes the perturbed singles amplitudes more important for the property calculations than
+   the perturbed doubles. This is manifested in CCLR as a kind of one electron basis relaxation
+   effects. Within this framework, the HF MOs can't see the external field so as to prevent the 
+   response function from spurious HF poles. Hence, when we solve the CC response equations, the 
+   perturbed singles have higher magnitudes than those of doubles as they incorporate the relaxation 
+   of HF MOs to the external field which should be more important than changes in the electron 
+   correlation picture. In other words, the perturbation in CC response is a one body operator 
+   while we have a 2 body fluctuating potential as a perturbation while describing 
+   dynamic electron-correlation. 
+
+5. Based on the above observations, we need to incorporate perturbed singles in the
+   definition of our perturbed density. If we look at the leading order contribution
+   to the perturbed singles for dipole polarizabilities, it is nothing but a vir-occ 
+   block of dipole moment divided by the energy denominator. we can create this density
+   as: D(a,b) = \sum_i mu_i^a * mu_i^b/(D_i^a * D_i^b). We can either take an average of 
+   ground state density with this or just use this as our new density. 
+
+Things to try out now:
+
+1. Just transform the full virtual space based on the above definition of density and
+   see how much we can truncate. 
+
+-- this doesn't seem to work.
+(from now on, be specific as to why this doesn't seem to work??)
+
+Here is the analysis part. I am printing the eigen-values of
+the perturbed density matrix. As one can see, a lot of 
+eigenvalues are close to zero. What does this mean? Lot of 
+linear dependencies which means only a few eigenvectors or virtual MOs 
+are needed in the new basis to re-construct this perturbed density. 
+Lets look at the orbital spatial extent of the orbitals in this basis.
+
+# occupation nos in the polarization space #
+ Irrep: 1
+      1:  2.3224030
+      2:  0.9686333
+      3:  0.9246845
+      4:  0.7218015
+      5:  0.6065975
+      6:  0.5258453
+      7:  0.5242237
+      8:  0.4299115
+      9:  0.4279172
+     10:  0.0478447
+     11:  0.0474478
+     12:  0.0206043
+     13:  0.0151865
+     14:  0.0149803
+     15:  0.0058808
+     16:  0.0048784
+     17:  0.0037586
+     18:  0.0030364
+     19:  0.0028270
+     20:  0.0012139
+     21:  0.0005169
+     22:  0.0000048
+     23:  0.0000019
+     24:  0.0000017
+     25:  0.0000003
+     26:  0.0000002
+     27:  0.0000002
+     28:  0.0000000
+     29:  0.0000000
+     30:  0.0000000
+     31:  0.0000000
+     32:  0.0000000
+     33:  0.0000000
+     34:  0.0000000
+     35:  0.0000000
+     36:  0.0000000
+     37:  0.0000000
+     38:  0.0000000
+     39:  0.0000000
+     40:  0.0000000
+     41:  0.0000000
+     42:  0.0000000
+     43: -0.0000000
+     44: -0.0000000
+     45: -0.0000000
+     46: -0.0000000
+     47: -0.0000000
+     48: -0.0000000
+     49: -0.0000000
+     50: -0.0000000
+     51: -0.0000000
+     52: -0.0000000
+     53: -0.0000000
+     54: -0.0000000
+     55: -0.0000000
+
+Also, look at the spatial extents in this pertubed basis:
+
+# diagonal <r^2> entries in perturbed basis #
+ Irrep: 1
+      1:  3.4637069
+      2:  2.2761653
+      3:  2.5600485
+      4:  3.5065587
+      5:  4.0719926
+      6:  3.8525069
+      7:  3.6952465
+      8:  3.8717292
+      9:  3.9961881
+     10:  4.4345628
+     11:  4.5604606
+     12:  4.2662716
+     13:  3.9462990
+     14:  4.6326856
+     15:  4.1966190
+     16:  7.0070015
+     17:  6.4038530
+     18:  6.7364063
+     19:  6.0951688
+     20:  7.1632460
+     21: 13.3007197
+     22:  9.3461935
+     23: 12.0057553
+     24:  8.0548854
+     25:  6.4882353
+     26: 10.9326894
+     27:  6.3165644
+     28: 22.5546158
+     29: 15.8185642
+     30: 10.4195853
+     31: 16.5327015
+     32:  5.6834485
+     33: 11.9026562
+     34:  7.3431207
+     35:  7.4560426
+     36:  8.5521591
+     37:  4.3380566
+     38:  6.6926260
+     39:  8.6523558
+     40:  8.7844114
+     41: 11.2181823
+     42:  9.8038048
+     43: 12.6617286
+     44: 12.1572593
+     45:  9.7123097
+     46:  9.1177881
+     47: 11.5500778
+     48:  7.2927308
+     49:  5.7079171
+     50:  9.7206375
+     51: 10.0516427
+     52:  6.1164789
+     53: 10.7605382
+     54: 15.3479631
+     55: 18.5394719
+
+So, there seems to be 2 problems in this pertubed density formalism.
+
+1. Most of the eigenvalues are close to zero, which means a criterion for 
+   truncation of the orbitals is not well defined.
+
+2. Also, many diffuse orbitals have very low eigenvalues as shown above.
+   and these diffuse orbitals come at the bottom and get removed first
+
+I am thinking of re-validating the results above in the perturbed basis
+again as I might have made some mistakes in getting the above results.
+
+
+
+
+The thing that I am looking for is a basis in which diplength is sparse. 
+I have seen before that the best basis in which the diplength is sparse
+seems to be the canonical basis itself. Let me plot the diplength in the 
+perturbed basis as well the canonical basis.
+
+# dip length in the canonical space #
+ Irrep: 1
+      1: -0.2073532
+      2: -0.2446532
+      3: -0.5758122
+      4: -0.1369580
+      5: -0.3643432
+      6: -0.1103737
+      7: -0.2032019
+      8: -0.2639335
+      9: -0.0222577
+     10: -0.5097610
+     11: -0.3739582
+     12: -1.0056922
+     13: -0.3187261
+     14: -0.3900753
+     15: -0.2279392
+     16: -0.2053563
+     17: -0.2292064
+     18: -0.1262341
+     19: -0.1154988
+     20: -0.3130726
+     21: -0.2944222
+     22: -0.3234361
+     23: -0.4170551
+     24: -0.1628954
+     25: -0.2784286
+     26: -0.2641920
+     27: -0.1666976
+     28: -0.0507748
+     29: -0.0751726
+     30: -0.0341181
+     31: -0.0265397
+     32: -0.0299341
+     33: -0.0261850
+     34: -0.0157655
+     35: -0.0168618
+     36: -0.0071764
+     37: -0.0066999
+     38: -0.0045620
+     39: -0.0041423
+     40: -0.0033607
+     41: -0.0021884
+     42: -0.0045679
+     43: -0.0054932
+     44: -0.0058256
+     45: -0.0078724
+     46: -0.0155451
+     47: -0.0146766
+     48: -0.0094487
+     49: -0.0132034
+     50: -0.0131903
+     51: -0.0062159
+     52: -0.0065147
+     53: -0.0041414
+     54: -0.0051119
+     55: -0.0053708
+
+As we can see, canonical MOs with higher energies have very low values of
+diplength. How about the diplength in the perturbed basis. 
+
+# dip length in the perturbed space #
+ Irrep: 1
+      1: -0.0086111
+      2: -0.0090659
+      3: -0.0107818
+      4: -0.0137402
+      5: -0.0175004
+      6: -0.0112188
+      7: -0.0124432
+      8: -0.0134315
+      9: -0.0143481
+     10: -0.0246280
+     11: -0.0561850
+     12: -0.0275637
+     13: -0.0396080
+     14: -0.0704716
+     15: -0.1743707
+     16: -0.2257210
+     17: -0.1501471
+     18: -0.1607453
+     19: -0.0714912
+     20: -0.2434029
+     21: -0.0834229
+     22: -0.1777589
+     23: -0.2305753
+     24: -0.3487633
+     25: -0.0309546
+     26: -0.1068008
+     27: -0.0523918
+     28: -0.1730119
+     29: -0.0297329
+     30: -0.1009281
+     31: -0.2418105
+     32: -0.0280505
+     33: -0.1270509
+     34: -0.0289879
+     35: -0.0308242
+     36: -0.0408346
+     37: -0.1529533
+     38: -0.0725158
+     39: -0.1245672
+     40: -0.1556246
+     41: -0.0919055
+     42: -0.0919771
+     43: -0.1637365
+     44: -0.0823973
+     45: -0.5142209
+     46: -0.1463085
+     47: -0.1216260
+     48: -0.0596147
+     49: -0.0252198
+     50: -0.0968626
+     51: -0.0650908
+     52: -0.0861964
+     53: -0.0986108
+     54: -0.1110604
+     55: -0.1449343
+
+As we can see, the sparsity is lost in the perturbed basis when we
+compare it with the canonical basis. Simply because some diffuse 
+orbitals still make it to the bottom in the perturbed basis. What 
+baffles me here is that the first few diplengths are very small. 
+But how can that be possible since the first few virtuals in the 
+perturbed basis have very high ONs which should be proportional
+to the diplength. That was the whole purpose of such a density formalism.
+
+
+
+
+
+How about we see a one to one correspondence with \sum_i X^i_a and
+diplength to validate these observations. Lets choose all three
+pertubations, mu_x, mu_y, mu_z at zero frequency.
+
+X1 for a given virtual for Mu_X perturbation: 
+
+    0.94322345997010
+    0.89392470236808
+    0.67726191163087
+    0.28257287555048
+    0.68602190913643
+    0.38189122554707
+    0.40334000193076
+    0.40080059397698
+    0.24882223240225
+    0.82221552386151
+    1.15688448306125
+    0.13278790157416
+    0.59170817047245
+    0.47135634927014
+    0.74817838315670
+    0.46892494769825
+    0.33908880667286
+    0.46274715104017
+    0.41556651510189
+    0.37128202271580
+    0.47702357635940
+    0.35430413035524
+    0.35759351225077
+    0.17066280337657
+    0.35443941966411
+    0.32509378986179
+    0.37494023789972
+    0.19303081691258
+    0.20762248019976
+    0.09391705275491
+    0.13465920720619
+    0.08898867846384
+    0.13324858401146
+    0.06813637405751
+    0.12710462167524
+    0.07585485881587
+    0.04238295797464
+    0.03709982114162
+    0.03294476708991
+    0.01905397078548
+    0.01009655582173
+    0.04421068309213
+    0.02688438830816
+    0.03471254718653
+    0.03508470172746
+    0.04125678540476
+    0.02223870629050
+    0.05016484914914
+    0.03350748704439
+    0.03891574968290
+    0.01139107842222
+    0.01472306209745
+    0.01824561200419
+    0.01691288739321
+    0.01096886852203
+
+
+X1 for a given virtual for Mu_Y perturbation
+
+    0.39118082953196
+    1.06175912923644
+    2.08097611135183
+    0.65838565200242
+    1.32667412119101
+    0.91302624799804
+    0.30367312263746
+    0.24269763538424
+    0.53320551061181
+    0.49830779033924
+    0.33148347265022
+    1.85288339014074
+    0.29961266537685
+    0.85313092107915
+    0.31815794433409
+    0.39597626207369
+    0.74802515172627
+    0.20997365567918
+    0.18896665231872
+    0.33181917869849
+    0.20166744077853
+    0.42647308368272
+    0.49069494182858
+    0.30847566250888
+    0.23444375506582
+    0.22067527047077
+    0.25724433893460
+    0.28321028777913
+    0.18748057817939
+    0.01752611803450
+    0.10944046367839
+    0.13929775674585
+    0.12907705201036
+    0.11716222183966
+    0.06800608314565
+    0.02065171150268
+    0.03972678076789
+    0.04816256854120
+    0.03567562794797
+    0.01505517131022
+    0.02425204090066
+    0.03400896777480
+    0.01071286426974
+    0.03704266919635
+    0.01881057850156
+    0.03738706384003
+    0.03665582494666
+    0.02232460488931
+    0.00900614199013
+    0.00521613242059
+    0.04101067864409
+    0.03660913244098
+    0.01831453562080
+    0.00627472537005
+    0.01952589060334
+
+
+ X1 for a given virtual for Mu_Z perturbation
+
+    1.10510445949366
+    0.77049158066331
+    0.39017484085295
+    0.57506251884790
+    0.64905585082320
+    0.31338186706259
+    0.97644043151939
+    0.95977117808438
+    0.23160872889014
+    1.09106352826362
+    0.33247895283048
+    0.10512022080305
+    0.76057933269298
+    0.72279543840611
+    0.33041497900845
+    0.48162701308882
+    0.14162807024754
+    0.44125655339565
+    0.39249752852197
+    0.44814502641197
+    0.40055515046642
+    0.32645118026139
+    0.31591699512689
+    0.23561687824807
+    0.42751583899363
+    0.29954040757755
+    0.17481188090533
+    0.09228493214958
+    0.25195197936288
+    0.21490284085364
+    0.07058358047632
+    0.05555713412252
+    0.18625985784988
+    0.07426147702923
+    0.06495649333110
+    0.02311312295443
+    0.03668928850671
+    0.01581323502374
+    0.02973283018855
+    0.04714815682520
+    0.01405428641720
+    0.03600335850866
+    0.01426025728824
+    0.02271831003047
+    0.02999252803761
+    0.01264206437410
+    0.04171893611314
+    0.02533729227319
+    0.04362204092877
+    0.03574044758317
+    0.03322489741754
+    0.00990772812819
+    0.01948413450692
+    0.02919349570263
+    0.01912568423014
+
+
+
+Yes, I do see the correspondence here. For high energy virtuals, diplen (guess)
+is smaller and so is their final X1s. That was expected!!
+
+*** How about we use X1s from CC2 or TDHF to construct the perturbed density. Let 
+   me take a look at the resulting eigen-values. I m not very hopeful though.
+ 
+
+
+
+
+how about plotting something like:
+
+t1(+e)(\sum_i)(vir) t1(-e)(\sum_i)(vir) d(t1)/de(\sum_i)(vir) d(t2)/de (\sum_ij) (vir * vir)
+
+
+
+
+
+
+
+a. take an average of mp2 ground state density and the dipole density.
+b. use the dipole density to identify real important diffuse orbitals. Transform
+   everything into this basis. Now create the mp2 ground state density in the
+   remaining basis and start truncating. I see only 9 out of 55 virtuals of H2O2
+   have significant eigenvalues. so lets create the mp2 ground state density in 
+   the rest of virtual space i.e among the rest of 46 virtuals and start truncating.
+   Lets see what happens.
+   
+
+
+
+

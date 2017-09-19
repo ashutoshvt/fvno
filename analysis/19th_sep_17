@@ -1,0 +1,19 @@
+TDC suggestions:
+
+1. Generate FNO, PNO  sparsity plots for all amplitudes
+for static electric field perturbations 
+at HF level and before HF level with 
+and without local occupied orbitals.
+
+2. Use the analyze function in ccenergy for generating 
+the sparsity plots of doubles and perturbed amplitudes.
+Singles analysis should be easier, hopefully.
+
+A side note:
+B3LYP shifts the excitation spectra to longer wavelengths,
+i.e lower frequency, which in TDC's words is wreaking havoc
+for optical rotatory dispersions. That's why CAM-B3LYP
+does a better job as it describes the diffuse rydberg
+states better.
+
+
