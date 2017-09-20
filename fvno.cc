@@ -73,6 +73,8 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
 
      std::shared_ptr<FVNO> FVNO_obj(new FVNO(ref_wfn, psio, options)); 
 
+     FVNO_obj->transform_mo_mp2();
+
      /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
        and construct the virtual-virtual block of ground state MP2 
        second order reduced density matrix. In spin orbitals,
