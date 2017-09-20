@@ -48,16 +48,14 @@ SharedMatrix gs_mp2_density_vv(SharedWavefunction ref_wfn, std::shared_ptr<PSIO>
      dpdbuf4 K;
      psio->open(PSIF_LIBTRANS_DPD, PSIO_OPEN_OLD);
      global_dpd_->buf4_init(&K, PSIF_LIBTRANS_DPD, 0, ID("[O,V]"), ID("[O,V]"), ID("[O,V]"), ID("[O,V]"), 0, "MO Ints (OV|OV)");
-     psio->open(PSIF_CC_DINTS, PSIO_OPEN_OLD);
-     global_dpd_->buf4_sort(&K, PSIF_CC_DINTS, prqs, ID("[O,O]"), ID("[V,V]"), "D <ij|ab>");
+     global_dpd_->buf4_sort(&K, PSIF_LIBTRANS_DPD, prqs, ID("[O,O]"), ID("[V,V]"), "D <ij|ab>");
      global_dpd_->buf4_close(&K);
-     psio->close(PSIF_LIBTRANS_DPD, 1);
 
-     global_dpd_->buf4_init(&D, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
-     global_dpd_->buf4_copy(&D, PSIF_CC_DINTS , "D' <ij|ab>");
+     global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
+     global_dpd_->buf4_copy(&D, PSIF_LIBTRANS_DPD , "D' <ij|ab>");
      global_dpd_->buf4_close(&D);
 
-     global_dpd_->buf4_init(&D, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D' <ij|ab>");
+     global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D' <ij|ab>");
      global_dpd_->buf4_mat_irrep_init(&D, 0);
      global_dpd_->buf4_mat_irrep_rd(&D, 0);
          for(int i=0,ij=0;i<occ;i++)
@@ -71,13 +69,13 @@ SharedMatrix gs_mp2_density_vv(SharedWavefunction ref_wfn, std::shared_ptr<PSIO>
      global_dpd_->buf4_close(&D);
 
 
-     global_dpd_->buf4_init(&D, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
-     global_dpd_->buf4_scmcopy(&D, PSIF_CC_DINTS, "D 2<ij|ab> - <ij|ba>", 2);
-     global_dpd_->buf4_sort_axpy(&D, PSIF_CC_DINTS, pqsr, 0, 5, "D 2<ij|ab> - <ij|ba>", -1);
+     global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
+     global_dpd_->buf4_scmcopy(&D, PSIF_LIBTRANS_DPD, "D 2<ij|ab> - <ij|ba>", 2);
+     global_dpd_->buf4_sort_axpy(&D, PSIF_LIBTRANS_DPD, pqsr, 0, 5, "D 2<ij|ab> - <ij|ba>", -1);
      global_dpd_->buf4_close(&D);
 
 
-     global_dpd_->buf4_init(&D, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D 2<ij|ab> - <ij|ba>");
+     global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D 2<ij|ab> - <ij|ba>");
      global_dpd_->buf4_mat_irrep_init(&D, 0);
      global_dpd_->buf4_mat_irrep_rd(&D, 0);
         for(int i=0,ij=0;i<occ;i++)
@@ -90,15 +88,15 @@ SharedMatrix gs_mp2_density_vv(SharedWavefunction ref_wfn, std::shared_ptr<PSIO>
      global_dpd_->buf4_mat_irrep_close(&D, 0);
      global_dpd_->buf4_close(&D);
 
-     global_dpd_->file2_init(&Density,PSIF_CC_DINTS,0,1,1,"d(a,b)");
-     global_dpd_->buf4_init(&D, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D' <ij|ab>");
-     global_dpd_->buf4_init(&D1, PSIF_CC_DINTS, 0, 0, 5, 0, 5, 0, "D 2<ij|ab> - <ij|ba>");
+     global_dpd_->file2_init(&Density,PSIF_LIBTRANS_DPD,0,1,1,"d(a,b)");
+     global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D' <ij|ab>");
+     global_dpd_->buf4_init(&D1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D 2<ij|ab> - <ij|ba>");
      global_dpd_->contract442(&D1,&D,&Density,2,2,2.0,0);
      global_dpd_->buf4_close(&D);
      global_dpd_->buf4_close(&D1);
      global_dpd_->file2_close(&Density);
 
-     global_dpd_->file2_init(&Density,PSIF_CC_DINTS,0,1,1,"d(a,b)");
+     global_dpd_->file2_init(&Density,PSIF_LIBTRANS_DPD,0,1,1,"d(a,b)");
      global_dpd_->file2_mat_init(&Density);
      global_dpd_->file2_mat_rd(&Density);
       for(int a=0;a<vir;a++)

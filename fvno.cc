@@ -89,7 +89,7 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
 
 
 
-    psio->close(PSIF_CC_DINTS, 1);
+    psio->close(PSIF_LIBTRANS_DPD, 1);
     return ref_wfn;
 }
 
