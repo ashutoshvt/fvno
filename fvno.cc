@@ -47,6 +47,8 @@ read_options(std::string name, Options &options)
         /*- The amount of information printed
             to the output file -*/
         options.add_int("PRINT", 1);
+        /* The number of virtual NOs to be removed */
+        options.add_int("FRZ_VNO", 0);
     }
 
     return true;
@@ -61,6 +63,7 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
      * possible to generate integrals with labels (IWL) formatted files, but that's not shown here.
      */
     int print = options.get_int("PRINT");
+    int frz_vno = options.get_int("FRZ_VNO");
 
     // Grab the global (default) PSIO object, for file I/O
     std::shared_ptr<PSIO> psio(_default_psio_lib_);
@@ -68,27 +71,51 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     // Have the reference (SCF) wavefunction, ref_wfn
     if(!ref_wfn) throw PSIEXCEPTION("SCF has not been run yet!");
 
-    // Quickly check that there are no open shell orbitals here...
-    int nirrep  = ref_wfn->nirrep();
-    int nmo= ref_wfn->nmo();
-    int occ = ref_wfn->doccpi()[0]; // hard-coded for C1 symmetry
-    int vir = nmo-occ;
+     std::shared_ptr<FVNO> FVNO_obj(new FVNO(ref_wfn, psio, options)); 
 
-
-    /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
+     /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
        and construct the virtual-virtual block of ground state MP2 
        second order reduced density matrix. In spin orbitals,
        D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
        In spin adpated form: 
        D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
     */
-    SharedMatrix gs_density(new Matrix("ground state mp2 density MO basis (vir-vir)", vir, vir));
-    gs_density = gs_mp2_density_vv(ref_wfn, psio);
-    gs_density->print();    
+
+     FVNO_obj->gs_mp2_density_vv();
+
+    /* Truncation of virtual NOs based on a given cutoff
+       or number of frozen virtual NOs specified in the input
+    */
+
+     FVNO_obj->truncate_VNOs();
+
+    /* Semi-canonicalize the VNO basis to speed up the convergence
+       of CC amplitude equations.
+    */
+
+     FVNO_obj->semicanonicalize_VNOs();
 
 
-
-
+/* 
+    Other steps to follow below:
+    1. Create a pertubed density based on guesses of X1s and X2s
+    2. Write down the expression for the perturbed demnsity as well
+    3. Don't forget to analyze the sparsity pattern of singles and
+       doubles amplitudes in ccenergy, cclambda and ccresponse modules 
+       in all these kinds of basis.
+    4. add an option of localizing the occupied orbitals
+    5. add an option for the canonical scheme where high energy 
+       virtuals should be removed.
+    6. add an option for the finite difference scheme so that the field
+       can be added here after the HF stage. 
+    7. maybe have different functions for the below. Include only the logic here
+       in the main file.
+    A. FVNO
+    B. localization of occupied orbitals
+    C. FCMO
+    D. FVNO ++
+    E. FIN_DIFF
+*/
     psio->close(PSIF_LIBTRANS_DPD, 1);
     return ref_wfn;
 }
