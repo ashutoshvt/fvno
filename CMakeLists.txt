@@ -34,5 +34,5 @@ project(fvno CXX)
 
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(fvno fvno.cc transform_to_mo.cc gs_mp2_density_vv.cc) 
+add_psi4_plugin(fvno fvno.cc  gs_mp2_density_vv.cc) 
 

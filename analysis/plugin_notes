@@ -1,0 +1,8 @@
+I was trying to compile the plugin in a directory other
+than the source. To ensure that it works properly, the
+name of the directory has to be the same as the name
+of the shared object. When we import fvno, we need
+to let python know of its path through sys.path.append.
+Make sure to give the path of directory above the plugin directory. 
+So, I created a fvno directory inside the fvno directory and
+compiled my plugin there.

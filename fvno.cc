@@ -72,21 +72,21 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     int nirrep  = ref_wfn->nirrep();
 
 
-    // Transform to the MO basis <ij|ab> type integrals 
-    transform_to_mo(ref_wfn, psio);
-
-    /* construct the virtual-virtual block of ground state MP2 
-     second order reduced density matrix. In spin orbitals,
-     D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
-     In spin adpated form: 
-     D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
+    /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
+       and construct the virtual-virtual block of ground state MP2 
+       second order reduced density matrix. In spin orbitals,
+       D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
+       In spin adpated form: 
+       D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
     */
 
-    gs_mp2_density_vv();
+    gs_mp2_density_vv(ref_wfn, psio);
+    
 
 
 
 
+    psio->close(PSIF_CC_DINTS, 1);
     return ref_wfn;
 }
 

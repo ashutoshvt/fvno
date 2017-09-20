@@ -1,6 +1,6 @@
 # PYTHONPATH must include directory above plugin directory.
 #     Define either externally or here, then import plugin.
-sys.path.insert(0, './../')
+sys.path.insert(0, './../../')
 import fvno
 
 molecule {
@@ -10,7 +10,6 @@ H 1 R 2 A
 
 R = .9
 A = 104.5
-symmetry c1
 }
 
 set {
