@@ -70,6 +70,9 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
 
     // Quickly check that there are no open shell orbitals here...
     int nirrep  = ref_wfn->nirrep();
+    int nmo= ref_wfn->nmo();
+    int occ = ref_wfn->doccpi()[0]; // hard-coded for C1 symmetry
+    int vir = nmo-occ;
 
 
     /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
@@ -79,9 +82,9 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
        In spin adpated form: 
        D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
     */
-
-    gs_mp2_density_vv(ref_wfn, psio);
-    
+    SharedMatrix gs_density(new Matrix("ground state mp2 density MO basis (vir-vir)", vir, vir));
+    gs_density = gs_mp2_density_vv(ref_wfn, psio);
+    gs_density->print();    
 
 
 
