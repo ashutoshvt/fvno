@@ -1,6 +1,12 @@
-This psi4 plugin is intended to test the performance 
-of the frozen virtual natural orbitals methods in
-calculating coupled cluster properties.
-To build this plugin:
+This psi4 plugin is intended to test the performance of the frozen virtual natural orbitals 
+based methods in calculating coupled cluster response properties. This plugin is built on the
+the latest persion of psi41.1 which can be found at https://github.com/psi4/psi4. The full
+set of instructions for downloading and installing psi4 can be found at 
+http://psicode.org/psi4manual/master/build_faq.html#obtaining-and-updating-psifour.
+After installing psi4, one can create plugins by following the instructions provided
+in the psi4 manual, http://www.psicode.org/psi4manual/master/plugins.html.
+Since all the necessay files have alredy been added in this repo, one needs to follow
+these three steps to compile and run this plugin in your top directory.
 1. `psi4 --compile-plugin` 
 2. make
+3. psi4
