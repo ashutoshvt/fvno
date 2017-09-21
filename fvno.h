@@ -3,6 +3,7 @@
 
 #include "psi4/libpsio/psio.hpp"
 #include "psi4/libmints/wavefunction.h"
+#include "psi4/libmints/mintshelper.h"
 #include "psi4/libmints/matrix.h"
 #include "psi4/libmints/vector.h"
 #include "psi4/liboptions/liboptions.h"
@@ -20,18 +21,26 @@ public:
     int nirrep_;
     int frz_vno_;
     int on_cutoff_;
+    Options options_;
     SharedWavefunction ref_wfn_;
     std::shared_ptr<PSIO> psio_;
     IntegralTransform * ints_;
+    std::shared_ptr<MintsHelper> mints_;
+    std::vector<SharedMatrix> dipole_;
+    std::vector<std::string> cart_;
     SharedVector epsilon_;
-    SharedVector ONs_;
     SharedMatrix C_;
     SharedMatrix F_so_;
     SharedMatrix F_mo_;
-    SharedMatrix VNOs_;
     SharedMatrix gs_density_;
+    SharedMatrix VNOs_;
+    SharedVector ONs_;
+    SharedMatrix SCan_VMO_;
     void transform_mo_mp2();
+    void preppert();
+    void sort_pert(std::string pert, std::string cart, SharedMatrix pert_mat);
     void gs_mp2_density_vv();
+    void pert_density_vv();
     void truncate_VNOs();
     void semicanonicalize_VNOs();
 

@@ -49,6 +49,7 @@ read_options(std::string name, Options &options)
         options.add_int("PRINT", 1);
         /* The number of virtual NOs to be removed */
         options.add_int("FRZ_VNO", 0);
+        options.add_bool("PERTURB_DENSITY", "FALSE");
     }
 
     return true;
@@ -64,6 +65,7 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
      */
     int print = options.get_int("PRINT");
     int frz_vno = options.get_int("FRZ_VNO");
+    bool perturb_density = options.get_bool("PERTURB_DENSITY");
 
     // Grab the global (default) PSIO object, for file I/O
     std::shared_ptr<PSIO> psio(_default_psio_lib_);
@@ -73,20 +75,30 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
 
      std::shared_ptr<FVNO> FVNO_obj(new FVNO(ref_wfn, psio, options)); 
 
+     /* Transform the ao integrals to the MO basis: only <ij|ab> type integrals */
      FVNO_obj->transform_mo_mp2();
 
-     /* Transform the ao integrals to the MO basis <ij|ab> type integrals 
-       and construct the virtual-virtual block of ground state MP2 
-       second order reduced density matrix. In spin orbitals,
-       D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
-       In spin adpated form: 
-       D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
+     /* Construct the virtual-virtual block of ground state MP2 
+        second order reduced density matrix. In spin orbitals,
+        D(a,b) = 0.5 * \sum_ijc t^{ac}_{ij} * t^{bc}_{ij}
+        In spin adpated form: 
+        D(a,b) = \sum_ijc (2.0 * t^{ac}_{ij} - t^{ca}{ij}) * t^{bc}_{ij}
     */
 
      FVNO_obj->gs_mp2_density_vv();
 
+    /* Now lets construct the perturbed doubles and singles specific density matrix: 
+       D(a,b) += \sum_ijc (2Xijac - Xijca)* Xijbc 
+       D(a,b) +== \sum_i (mu^a_i * mu^b_i)/(Dia * Dib) 
+    */
+
+     if (perturb_density){
+        FVNO_obj->preppert();
+        FVNO_obj->pert_density_vv();      
+     }
+
     /* Truncation of virtual NOs based on a given cutoff
-       or number of frozen virtual NOs specified in the input
+       or number of frozen virtual NOs as specified in the input
     */
 
      FVNO_obj->truncate_VNOs();
@@ -96,6 +108,8 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     */
 
      FVNO_obj->semicanonicalize_VNOs();
+
+    
 
 
 /* 
@@ -118,7 +132,14 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     D. FVNO ++
     E. FIN_DIFF
 */
-    psio->close(PSIF_LIBTRANS_DPD, 1);
+
+
+    //psio->close(PSIF_LIBTRANS_DPD, 1);
+
+    ref_wfn->Ca()->copy(FVNO_obj->C_->clone());
+    ref_wfn->Cb()->copy(FVNO_obj->C_->clone());
+
+
     return ref_wfn;
 }
 
