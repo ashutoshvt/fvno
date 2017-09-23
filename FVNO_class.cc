@@ -14,6 +14,7 @@ namespace psi { namespace fvno{
 
     FVNO::FVNO(SharedWavefunction ref_wfn, std::shared_ptr<PSIO> psio, Options& options){
 
+        outfile->Printf("\nConstructor starting:\n");
         psio_ = psio;
         ref_wfn_ = ref_wfn;
         options_ = options;
@@ -23,6 +24,10 @@ namespace psi { namespace fvno{
         occ_ = ref_wfn_->doccpi()[0]; // hard-coded for symmetry C1
         vir_ = nmo_-occ_;
         frz_vno_ = options.get_int("FRZ_VNO");
+        on_cutoff_ = options.get_double("ON_CUTOFF");
+        vno_basis_ = options.get_bool("VNO_BASIS"); 
+        outfile->Printf("\nVNO_BASIS: %d\n", vno_basis_);
+        semicanonical_basis_ = options.get_bool("SEMICANONICAL_BASIS"); 
         epsilon_ = SharedVector(new Vector(" orbital energies",nmo_));
         epsilon_->copy(ref_wfn_->epsilon_a()->clone());
         C_ = SharedMatrix(new Matrix("Canonical MO Coefficients", nso_, nmo_));
@@ -34,11 +39,13 @@ namespace psi { namespace fvno{
         gs_density_ = SharedMatrix(new Matrix("ground state mp2 density MO basis (vir-vir)", vir_, vir_));
         VNOs_ = SharedMatrix(new Matrix("Eigen-vectors (CVMO->VNO transformation)", vir_, vir_));
         ONs_ = SharedVector(new Vector("Eigen-values (Occupation numbers)", vir_));
-        SCan_VMO_ = SharedMatrix(new Matrix(" Semicanonical basis (CVMO->VNO->SCMO transformation)", nmo_, vir_));
+        SCan_VMO_ = SharedMatrix(new Matrix(" Semicanonical basis (CVMO->VNO->SCVMO transformation)", nmo_, vir_));
+        outfile->Printf("\nConstructor over:\n");
     }
 
     FVNO::~FVNO()
-    {}
+    {   
+    }
 
     void FVNO::transform_mo_mp2(){
 
@@ -72,7 +79,7 @@ namespace psi { namespace fvno{
             for(int a=0,ab=0;a<vir_;a++)
               for(int b=0;b<vir_;b++,ab++)
                 Dijab.matrix[0][ij][ab] = 1.0/(epsilon_->get(i) + epsilon_->get(j) - F_mo_->get(a+occ_,a+occ_) - F_mo_->get(b+occ_,b+occ_));
-         }
+        }
         global_dpd_->buf4_mat_irrep_wrt(&Dijab, 0);
         global_dpd_->buf4_mat_irrep_close(&Dijab, 0);
         global_dpd_->buf4_close(&Dijab);
@@ -80,10 +87,10 @@ namespace psi { namespace fvno{
 
         global_dpd_->file2_init(&Dia, PSIF_LIBTRANS_DPD, 0, 0, 1, "Dia");
         global_dpd_->file2_mat_init(&Dia);
-        global_dpd_->file2_mat_rd(&Dia);
          for(int i=0; i<occ_; i++)
            for(int a=0; a<vir_; a++)
              Dia.matrix[0][i][a] = 1.0/(epsilon_->get(i) - F_mo_->get(a+occ_,a+occ_));
+        global_dpd_->file2_mat_wrt(&Dia);
         global_dpd_->file2_mat_close(&Dia);
         global_dpd_->file2_close(&Dia);
         
@@ -96,116 +103,223 @@ namespace psi { namespace fvno{
         dpdbuf4 D, D1, Dia, Dijab;
         dpdfile2 Density;
         global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
-        global_dpd_->buf4_copy(&D, PSIF_LIBTRANS_DPD , "tIjAb(MP2)");
-        global_dpd_->buf4_close(&D);
-
-        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb(MP2)");
         global_dpd_->buf4_init(&Dijab, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "Dijab");
         global_dpd_->buf4_dirprd(&Dijab, &D);
+        global_dpd_->buf4_copy(&D, PSIF_LIBTRANS_DPD , "tIjAb (MP2)");
+        global_dpd_->buf4_close(&Dijab);
         global_dpd_->buf4_close(&D);
 
-
-        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "D <ij|ab>");
+        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
         global_dpd_->buf4_scmcopy(&D, PSIF_LIBTRANS_DPD, "2 tIjAb - tIjBa (MP2)", 2);
         global_dpd_->buf4_sort_axpy(&D, PSIF_LIBTRANS_DPD, pqsr, 0, 5, "2 tIjAb - tIjBa (MP2)", -1);
         global_dpd_->buf4_close(&D);
 
-        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "2 tIjAb - tIjBa (MP2)");
-        global_dpd_->buf4_dirprd(&Dijab, &D);
-        global_dpd_->buf4_close(&D);
-        global_dpd_->buf4_close(&Dijab);
-
         global_dpd_->file2_init(&Density, PSIF_LIBTRANS_DPD, 0, 1, 1, "d(a,b)");
-        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb(MP2)");
+        global_dpd_->buf4_init(&D, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
         global_dpd_->buf4_init(&D1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "2 tIjAb - tIjBa (MP2)");
         global_dpd_->contract442(&D1, &D, &Density, 2, 2, 1.0, 0); // don't know why it was 2.0 instead of 1.0
         global_dpd_->buf4_close(&D);
         global_dpd_->buf4_close(&D1);
         global_dpd_->file2_close(&Density);
 
+        global_dpd_->file2_init(&Density, PSIF_LIBTRANS_DPD, 0, 1, 1,"d(a,b)");
+        global_dpd_->file2_mat_init(&Density);
+        global_dpd_->file2_mat_rd(&Density);
+        for(int a=0; a<vir_; a++)
+          for(int b=0; b<vir_; b++)
+            gs_density_->set(a,b,Density.matrix[0][a][b]);
+        global_dpd_->file2_mat_close(&Density);
+        global_dpd_->file2_close(&Density);
+
+        gs_density_->print();
+
     }
 
 
+    /* Eventually, prepert should take a perturbation as an argument.
+       Right now its hard-coded just for dipole perturbations */
 
-    void FVNO::preppert(){
 
-       /* Right now hard-coded just for dipole perturbations */
+    void FVNO::preppert(){  
 
+       dpdfile2 Dia, f;
        cart_.push_back("X"); cart_.push_back("Y"); cart_.push_back("Z");
        mints_ = std::shared_ptr<MintsHelper>(new MintsHelper(ref_wfn_->basisset(), options_, 0));
        dipole_ = mints_->ao_dipole();
+       std::string lbl ;
        for(int p=0; p<3; p++){
          dipole_[p]->transform(C_);
-         sort_pert("mu", cart_[p], dipole_[p]); // hard-coded for dipole perturbations
-        }   
-    }
+         /* 
+         Sorting the perturbation matrices into occupied and
+         virtual blocks in dpdfile2 structures.
+         */
+         lbl = "mu" + cart_[p] + "_IJ";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int i=0; i<occ_; i++)
+           for(int j=0; j<occ_; j++)
+             f.matrix[0][i][j] = dipole_[p]->get(i,j);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
 
-    void FVNO::sort_pert(std::string pert, std::string cart, SharedMatrix pert_mat){
+         
+         /*global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         global_dpd_->file2_mat_rd(&f);
+         global_dpd_->file2_mat_print(&f, "outfile");
+         global_dpd_->file2_close(&f);*/
+
+         //outfile->Printf("\nMU_X over:\n");
+
+         lbl = "mu" + cart_[p] + "_AB";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 1, 1, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int a=0; a<vir_; a++)
+           for(int b=0; b<vir_; b++)
+             f.matrix[0][a][b] = dipole_[p]->get(a+occ_,b+occ_);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
+
+         lbl = "mu" + cart_[p] + "_IA";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int i=0; i<occ_; i++)
+           for(int a=0; a<vir_; a++)
+             f.matrix[0][i][a] = dipole_[p]->get(i, a+occ_);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
    
-       dpdfile2 f, Dia; 
-   
-       std::string lbl = pert + cart + "_IJ";
-       global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
-       global_dpd_->file2_mat_init(&f);
-       for(int i=0; i<occ_; i++)
-         for(int j=0; j<occ_; j++) 
-           f.matrix[0][i][j] = pert_mat->get(i,j);
-       global_dpd_->file2_mat_wrt(&f);
-       global_dpd_->file2_mat_close(&f);
-       global_dpd_->file2_close(&f);
+         /* need only mu_ia/D_ia actually */
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_init(&Dia, PSIF_LIBTRANS_DPD, 0, 0, 1, "Dia");
+         global_dpd_->file2_dirprd(&Dia, &f);
+         global_dpd_->file2_close(&f);
+         global_dpd_->file2_close(&Dia);
 
-       lbl = pert + cart + "_AB";
-       global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 1, 1, lbl.c_str());
-       global_dpd_->file2_mat_init(&f);
-       for(int a=0; a<vir_; a++) 
-         for(int b=0; b<vir_; b++) 
-           f.matrix[0][a][b] = pert_mat->get(a+occ_,b+occ_); 
-       global_dpd_->file2_mat_wrt(&f);
-       global_dpd_->file2_mat_close(&f);
-       global_dpd_->file2_close(&f);
-
-       lbl = pert + cart + "_IA";
-       global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
-       global_dpd_->file2_mat_init(&f);
-       for(int i=0; i<occ_; i++)
-         for(int a=0; a<vir_; a++) 
-           f.matrix[0][i][a] = pert_mat->get(i, a+occ_);
-       global_dpd_->file2_mat_wrt(&f);
-       global_dpd_->file2_mat_close(&f);
-       global_dpd_->file2_close(&f);
-    
-       /* need only mu_ia/D_ia actually */
-       global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
-       global_dpd_->file2_init(&Dia, PSIF_LIBTRANS_DPD, 0, 0, 1, "Dia");
-       global_dpd_->file2_dirprd(&Dia, &f);
-       global_dpd_->file2_close(&f);
-       global_dpd_->file2_close(&Dia);
-    }
-
+          }   
+        }
 
     void FVNO::pert_density_vv(){
 
        dpdfile2 f, fc, D;
+       dpdbuf4 fbar, fbar1, t2, Dijab;
        std::string lbl; 
+       std::string lbl1; 
 
-       /* lets try to finish it tonight 
-          singles contribution to pert_density 
+       /* 
+          Singles contribution to pert_density 
        */  
+
+       pert_density_singles_ = SharedMatrix(new Matrix("singles perturbed density MO basis (vir-vir)", vir_, vir_));
+       pert_density_doubles_ = SharedMatrix(new Matrix("doubles perturbed density MO basis (vir-vir)", vir_, vir_));
  
-       global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d(a,b)");
        for(int p=0; p<3; p++){
          lbl = "mu" + cart_[p] + "_IA"; // hard-coded for "mu"
+         lbl1 = "tmp_mu" + cart_[p] + "_IA"; 
          global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
-         global_dpd_->file2_copy(&f, PSIF_LIBTRANS_DPD, "tmp");
-         global_dpd_->file2_init(&fc, PSIF_LIBTRANS_DPD, 0, 0, 1, "tmp");
-         global_dpd_->contract222(&f, &fc, &D, 1, 1, 1, 1);
+         global_dpd_->file2_copy(&f, PSIF_LIBTRANS_DPD, lbl1.c_str());
+         global_dpd_->file2_close(&f);
+         }
+        
+
+       global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_singles(a,b)");
+       for(int p=0; p<3; p++){
+         lbl = "mu" + cart_[p] + "_IA"; // hard-coded for "mu"
+         lbl1 = "tmp_mu" + cart_[p] + "_IA"; 
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_init(&fc, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl1.c_str());
+         global_dpd_->contract222(&f, &fc, &D, 1, 1, 1, 0);
          global_dpd_->file2_close(&f);
          global_dpd_->file2_close(&fc);
        }
        global_dpd_->file2_close(&D);
-       psio_->close(PSIF_LIBTRANS_DPD, 1);
 
+        
+        global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1,"d_pert_singles(a,b)");
+        global_dpd_->file2_mat_init(&D);
+        global_dpd_->file2_mat_rd(&D);
+        for(int a=0; a<vir_; a++)
+          for(int b=0; b<vir_; b++)
+            pert_density_singles_->set(a,b,D.matrix[0][a][b]);
+        global_dpd_->file2_mat_close(&D);
+        global_dpd_->file2_close(&D);
+
+        /* Doubles contribution to pert_density */
+         
+
+       for(int p=0; p<3; p++){
+         lbl = "mu" + cart_[p] + "_IjAb";
+         global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+
+         lbl = "mu" + cart_[p] + "_AB"; 
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 1, 1, lbl.c_str());
+         global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
+         global_dpd_->contract424(&t2, &f, &fbar, 3, 1, 0, 1, 0);
+         global_dpd_->contract244(&f, &t2, &fbar, 1, 2, 1, 1, 1);
+         global_dpd_->buf4_close(&t2);
+         global_dpd_->file2_close(&f);
+
+         lbl = "mu" + cart_[p] + "_IJ"; 
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
+         global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
+         global_dpd_->contract424(&t2, &f, &fbar, 1, 0, 1, -1, 1);
+         global_dpd_->contract244(&f, &t2, &fbar, 0, 0, 0, -1, 1);
+         global_dpd_->buf4_close(&t2);
+         global_dpd_->file2_close(&f);
+
+         global_dpd_->buf4_init(&Dijab, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "Dijab");
+         global_dpd_->buf4_dirprd(&Dijab, &fbar);
+         global_dpd_->buf4_close(&Dijab);
+
+         lbl = "mu" + cart_[p] + "_XIjAb (MP2)";
+         global_dpd_->buf4_copy(&fbar, PSIF_LIBTRANS_DPD , lbl.c_str());
+         global_dpd_->buf4_close(&fbar);
+
+
+         global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+         lbl = "2 mu" + cart_[p] + "_XIjAb (MP2)" + " - mu" + cart_[p] + "_XIjBa (MP2)";
+         global_dpd_->buf4_scmcopy(&fbar, PSIF_LIBTRANS_DPD, lbl.c_str(), 2);
+         global_dpd_->buf4_sort_axpy(&fbar, PSIF_LIBTRANS_DPD, pqsr, 0, 5, lbl.c_str(), -1);
+         global_dpd_->buf4_close(&fbar);
+
+
+         global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_doubles(a,b)");
+         lbl = "mu" + cart_[p] + "_XIjAb (MP2)";
+         lbl1 = "2 mu" + cart_[p] + "_XIjAb (MP2)" + " - mu" + cart_[p] + "_XIjBa (MP2)";
+         global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+         global_dpd_->buf4_init(&fbar1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl1.c_str());
+         global_dpd_->contract442(&fbar1, &fbar, &D, 2, 2, 1.0, 0); 
+         global_dpd_->buf4_close(&fbar);
+         global_dpd_->buf4_close(&fbar1);
+         global_dpd_->file2_close(&D);
+
+         global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1,"d_pert_doubles(a,b)");
+         global_dpd_->file2_mat_init(&D);
+         global_dpd_->file2_mat_rd(&D);
+         for(int a=0; a<vir_; a++)
+           for(int b=0; b<vir_; b++)
+             pert_density_doubles_->set(a,b,D.matrix[0][a][b]);
+         global_dpd_->file2_mat_close(&D);
+         global_dpd_->file2_close(&D);
+       }
     }
+
+    void FVNO::final_density(){
+
+        /* Combine the ground state density with singles and doubles perturbed densities */
+
+       combined_density_ = SharedMatrix(new Matrix("combined density MO basis (vir-vir)", vir_, vir_));
+       combined_density_->copy(gs_density_);
+       bool pert_density = options_.get_bool("PERTURB_DENSITY") ;
+       if (pert_density) {
+          combined_density_->add(pert_density_singles_);
+          combined_density_->add(pert_density_doubles_);
+          combined_density_->scale(0.5);
+        }
+        }
 
     void FVNO::truncate_VNOs(){
     
@@ -214,10 +328,10 @@ namespace psi { namespace fvno{
            insread of gs_mp2_density_vv()
         */
 
-        bool loaded = gs_density_->load(psio_, PSIF_LIBTRANS_DPD, "d(a,b)", vir_);
+        //bool loaded = gs_density_->load(psio_, PSIF_LIBTRANS_DPD, "d(a,b)", vir_); 
 
         SharedVector zero_vec(new Vector("zero vector", vir_));
-        gs_density_->diagonalize(VNOs_, ONs_, descending);
+        combined_density_->diagonalize(VNOs_, ONs_, descending);
         VNOs_->print();
         ONs_->print();
         
@@ -240,17 +354,38 @@ namespace psi { namespace fvno{
         }
 
           outfile->Printf("\n\t Number of frozen VNOs: %d\n",frz_vno_);
-          VNOs_->print();   
+          //VNOs_->print();   
 
     }
 
-    void FVNO::semicanonicalize_VNOs(){
-    
-        SharedMatrix F_v(new Matrix("vir-vir block of fock", vir_, vir_));            
+    void FVNO::final_basis(){
+
         SharedMatrix C_v(new Matrix("vir columns of MO C ", nmo_, vir_));            
+        SharedMatrix tmp_m(new Matrix("temporary matrix", nmo_, vir_));            
+
+        if (vno_basis_){
+           for(int p=0; p<nmo_; p++)  
+             for(int a=0; a<vir_; a++)  
+               C_v->set(p, a, C_->get(p, a+occ_));  
+
+           tmp_m->gemm(0, 0, 1, C_v, VNOs_, 0);   
+
+        for (int p=0; p<nmo_;  p++)
+          for (int a=0; a<vir_; a++)
+             C_->set(p, a+occ_, tmp_m->get(p,a));
+        
+        SharedMatrix tmp1_m(new Matrix("temporary matrix", vir_, vir_));            
+        SharedMatrix tmp2_m(new Matrix("temporary matrix", vir_, vir_));            
+        tmp2_m->copy(VNOs_->clone());
+        tmp1_m->gemm(1, 0, 1, VNOs_, tmp2_m, 0);   
+        tmp1_m->print();
+
+        }
+
+        else if (semicanonical_basis_) {
+        SharedMatrix F_v(new Matrix("vir-vir block of fock", vir_, vir_));            
         SharedVector SCanVOrbEnergies(new Vector("SemiCanonical Virtual Orbital energies", vir_));            
         SharedMatrix VNOs_VSCan(new Matrix("VNOs to VSCan", vir_, vir_));            
-        SharedMatrix tmp_m(new Matrix("temporary matrix", nmo_, vir_));            
 
         for(int a=0; a<vir_; a++)  
           for(int b=0; b<vir_; b++)  
@@ -268,7 +403,8 @@ namespace psi { namespace fvno{
         for (int p=0; p<nmo_;  p++)
           for (int a=0; a<vir_; a++)
              C_->set(p, a+occ_, SCan_VMO_->get(p,a));
-        C_->print();
+        }
+        //C_->print();
     }
 
 }}

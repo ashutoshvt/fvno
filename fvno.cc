@@ -49,7 +49,10 @@ read_options(std::string name, Options &options)
         options.add_int("PRINT", 1);
         /* The number of virtual NOs to be removed */
         options.add_int("FRZ_VNO", 0);
-        options.add_bool("PERTURB_DENSITY", "FALSE");
+        options.add_double("ON_CUTOFF", 0);
+        options.add_bool("PERTURB_DENSITY", false);
+        options.add_bool("SEMICANONICAL_BASIS", false);
+        options.add_bool("VNO_BASIS", false);
     }
 
     return true;
@@ -66,12 +69,16 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     int print = options.get_int("PRINT");
     int frz_vno = options.get_int("FRZ_VNO");
     bool perturb_density = options.get_bool("PERTURB_DENSITY");
+    bool vno_basis = options.get_bool("VNO_BASIS");
+    outfile->Printf("\n Perturb_density: %d\n", perturb_density);
+    outfile->Printf("\n vno_basis: %d\n", vno_basis);
 
     // Grab the global (default) PSIO object, for file I/O
     std::shared_ptr<PSIO> psio(_default_psio_lib_);
 
     // Have the reference (SCF) wavefunction, ref_wfn
     if(!ref_wfn) throw PSIEXCEPTION("SCF has not been run yet!");
+
 
      std::shared_ptr<FVNO> FVNO_obj(new FVNO(ref_wfn, psio, options)); 
 
@@ -97,35 +104,39 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
         FVNO_obj->pert_density_vv();      
      }
 
+    /* Only ground state, only perturbed (only singles, only doubles, combined), 
+       combined (only perturbed singles, perturbed doubles, combined)*/
+        
+     FVNO_obj->final_density();
+
     /* Truncation of virtual NOs based on a given cutoff
        or number of frozen virtual NOs as specified in the input
     */
 
      FVNO_obj->truncate_VNOs();
 
-    /* Semi-canonicalize the VNO basis to speed up the convergence
-       of CC amplitude equations.
+    /* Either Semi-canonicalize the VNO basis to speed up the convergence
+       of CC amplitude equations or keep it as such for analysis purposes.
     */
 
-     FVNO_obj->semicanonicalize_VNOs();
+     FVNO_obj->final_basis();
 
     
 
-
 /* 
     Other steps to follow below:
-    1. Create a pertubed density based on guesses of X1s and X2s
-    2. Write down the expression for the perturbed demnsity as well
-    3. Don't forget to analyze the sparsity pattern of singles and
+    1. Create a pertubed density based on guesses of X1s and X2s : DONE
+    2. Write down the expression for the perturbed demnsity as well : DONE
+    3. Don't forget to analyze the sparsity pattern of singles and 
        doubles amplitudes in ccenergy, cclambda and ccresponse modules 
-       in all these kinds of basis.
-    4. add an option of localizing the occupied orbitals
+       in all these kinds of basis. TODO
+    4. add an option of localizing the occupied orbitals TODO
     5. add an option for the canonical scheme where high energy 
-       virtuals should be removed.
+       virtuals should be removed. TODO
     6. add an option for the finite difference scheme so that the field
-       can be added here after the HF stage. 
+       can be added here after the HF stage. TODO
     7. maybe have different functions for the below. Include only the logic here
-       in the main file.
+       in the main file. TODO
     A. FVNO
     B. localization of occupied orbitals
     C. FCMO
@@ -133,13 +144,18 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     E. FIN_DIFF
 */
 
-
-    //psio->close(PSIF_LIBTRANS_DPD, 1);
-
     ref_wfn->Ca()->copy(FVNO_obj->C_->clone());
     ref_wfn->Cb()->copy(FVNO_obj->C_->clone());
 
+    delete FVNO_obj->ints_ ;            // I have no other way to destroy the dpd
+    psio->close(PSIF_LIBTRANS_DPD, 0); // 0: I don't want to keep it
 
+    outfile->Printf("\n New FVNO object now\n");
+    std::shared_ptr<FVNO> FVNO_obj1(new FVNO(ref_wfn, psio, options)); 
+    FVNO_obj1->transform_mo_mp2();
+    FVNO_obj1->gs_mp2_density_vv();
+
+    psio->close(PSIF_LIBTRANS_DPD, 0);
     return ref_wfn;
 }
 

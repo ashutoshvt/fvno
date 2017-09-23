@@ -20,7 +20,9 @@ public:
     int nso_;
     int nirrep_;
     int frz_vno_;
-    int on_cutoff_;
+    double on_cutoff_;
+    bool vno_basis_;
+    bool semicanonical_basis_;
     Options options_;
     SharedWavefunction ref_wfn_;
     std::shared_ptr<PSIO> psio_;
@@ -33,16 +35,20 @@ public:
     SharedMatrix F_so_;
     SharedMatrix F_mo_;
     SharedMatrix gs_density_;
+    SharedMatrix pert_density_singles_;
+    SharedMatrix pert_density_doubles_;
+    SharedMatrix combined_density_;
     SharedMatrix VNOs_;
     SharedVector ONs_;
     SharedMatrix SCan_VMO_;
     void transform_mo_mp2();
     void preppert();
-    void sort_pert(std::string pert, std::string cart, SharedMatrix pert_mat);
+    //void sort_pert(std::string pert, std::string cart, SharedMatrix pert_mat);
     void gs_mp2_density_vv();
     void pert_density_vv();
+    void final_density();
     void truncate_VNOs();
-    void semicanonicalize_VNOs();
+    void final_basis();
 
 };
 }}
