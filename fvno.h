@@ -20,9 +20,14 @@ public:
     int nso_;
     int nirrep_;
     int frz_vno_;
+    int my_frozen_uocc_;
     double on_cutoff_;
+    bool print_;
     bool vno_basis_;
     bool semicanonical_basis_;
+    bool canonical_basis_;
+    bool prop_correction_;
+    bool pert_density_order_;
     Options options_;
     SharedWavefunction ref_wfn_;
     std::shared_ptr<PSIO> psio_;
@@ -42,11 +47,11 @@ public:
     SharedVector ONs_;
     SharedMatrix SCan_VMO_;
     void transform_mo_mp2();
-    void preppert();
+    void preppert(Options& options);
     //void sort_pert(std::string pert, std::string cart, SharedMatrix pert_mat);
     void gs_mp2_density_vv();
-    void pert_density_vv();
-    void final_density();
+    void pert_density_vv(Options & options);
+    void final_density(Options& options);
     void truncate_VNOs();
     void final_basis();
 

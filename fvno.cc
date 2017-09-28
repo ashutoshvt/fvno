@@ -50,9 +50,20 @@ read_options(std::string name, Options &options)
         /* The number of virtual NOs to be removed */
         options.add_int("FRZ_VNO", 0);
         options.add_double("ON_CUTOFF", 0);
-        options.add_bool("PERTURB_DENSITY", false);
+        options.add_int("MY_FROZEN_UOCC", 0);
+        options.add_bool("ANALYZE_NO", false);
+        options.add_bool("ANALYZE_CAN", false);
+        options.add_bool("COMBINED_PERT_DENSITY", false);
+        options.add_bool("ONLY_PERT_DENSITY", false);
+        options.add_bool("ONLY_GS_DENSITY", false);
+        options.add_bool("PERT_DENSITY_SINGLES", false);
+        options.add_bool("PERT_DENSITY_DOUBLES", false);
         options.add_bool("SEMICANONICAL_BASIS", false);
         options.add_bool("VNO_BASIS", false);
+        options.add_bool("CANONICAL_BASIS", false);
+        options.add_bool("CONSTRUCT_X1", false);
+        options.add_bool("READ_X1", false);
+        options.add_bool("PROP_CORRECTION", false);
     }
 
     return true;
@@ -68,10 +79,11 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
      */
     int print = options.get_int("PRINT");
     int frz_vno = options.get_int("FRZ_VNO");
-    bool perturb_density = options.get_bool("PERTURB_DENSITY");
-    bool vno_basis = options.get_bool("VNO_BASIS");
-    outfile->Printf("\n Perturb_density: %d\n", perturb_density);
-    outfile->Printf("\n vno_basis: %d\n", vno_basis);
+    bool analyze_no = options.get_bool("ANALYZE_NO");
+    bool analyze_can = options.get_bool("ANALYZE_CAN");
+    bool combined_pert= options.get_bool("COMBINED_PERT_DENSITY");
+    bool only_pert= options.get_bool("ONLY_PERT_DENSITY");
+    bool only_gs= options.get_bool("ONLY_GS_DENSITY");
 
     // Grab the global (default) PSIO object, for file I/O
     std::shared_ptr<PSIO> psio(_default_psio_lib_);
@@ -81,7 +93,9 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
 
 
      std::shared_ptr<FVNO> FVNO_obj(new FVNO(ref_wfn, psio, options)); 
-
+     
+     if (analyze_can) FVNO_obj->print_ = true;
+  
      /* Transform the ao integrals to the MO basis: only <ij|ab> type integrals */
      FVNO_obj->transform_mo_mp2();
 
@@ -99,15 +113,15 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
        D(a,b) +== \sum_i (mu^a_i * mu^b_i)/(Dia * Dib) 
     */
 
-     if (perturb_density){
-        FVNO_obj->preppert();
-        FVNO_obj->pert_density_vv();      
+     if (combined_pert || only_pert || analyze_can){
+        FVNO_obj->preppert(options);
+        FVNO_obj->pert_density_vv(options);      
      }
 
     /* Only ground state, only perturbed (only singles, only doubles, combined), 
        combined (only perturbed singles, perturbed doubles, combined)*/
         
-     FVNO_obj->final_density();
+     FVNO_obj->final_density(options);
 
     /* Truncation of virtual NOs based on a given cutoff
        or number of frozen virtual NOs as specified in the input
@@ -144,18 +158,29 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     E. FIN_DIFF
 */
 
+
     ref_wfn->Ca()->copy(FVNO_obj->C_->clone());
     ref_wfn->Cb()->copy(FVNO_obj->C_->clone());
 
+    //ref_wfn->Ca()->print();
     delete FVNO_obj->ints_ ;            // I have no other way to destroy the dpd
     psio->close(PSIF_LIBTRANS_DPD, 0); // 0: I don't want to keep it
 
+    if (analyze_no){
     outfile->Printf("\n New FVNO object now\n");
     std::shared_ptr<FVNO> FVNO_obj1(new FVNO(ref_wfn, psio, options)); 
+    FVNO_obj1->print_ = true;
     FVNO_obj1->transform_mo_mp2();
     FVNO_obj1->gs_mp2_density_vv();
+    FVNO_obj1->preppert(options);
+    FVNO_obj1->pert_density_vv(options);
 
-    psio->close(PSIF_LIBTRANS_DPD, 0);
+    outfile->Printf("\n New FVNO object closed now\n");
+    delete FVNO_obj1->ints_ ;            // I have no other way to destroy the dpd
+    psio->close(PSIF_LIBTRANS_DPD, 0); // 0: I don't want to keep it
+
+    }
+    
     return ref_wfn;
 }
 

@@ -549,4 +549,12 @@ b. use the dipole density to identify real important diffuse orbitals. Transform
 
 
 
+Things to do now that my method works:
+
+1. Localize the occupied as well using exactly the same method as for virtuals and compare the performance of this method.
+2. Look if I can get a suitable correction out of this method for polarizabilities.
+3. Extend this scheme for optical rotations.
+
+
+
 
