@@ -58,12 +58,14 @@ read_options(std::string name, Options &options)
         options.add_bool("ONLY_GS_DENSITY", false);
         options.add_bool("PERT_DENSITY_SINGLES", false);
         options.add_bool("PERT_DENSITY_DOUBLES", false);
+        options.add_int("PERT_DENSITY_ORDER", 0);
         options.add_bool("SEMICANONICAL_BASIS", false);
         options.add_bool("VNO_BASIS", false);
         options.add_bool("CANONICAL_BASIS", false);
         options.add_bool("CONSTRUCT_X1", false);
         options.add_bool("READ_X1", false);
         options.add_bool("PROP_CORRECTION", false);
+        options.add_str("PROPERTY", "");
     }
 
     return true;
@@ -127,7 +129,7 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
        or number of frozen virtual NOs as specified in the input
     */
 
-     FVNO_obj->truncate_VNOs();
+     FVNO_obj->truncate_VNOs(options);
 
     /* Either Semi-canonicalize the VNO basis to speed up the convergence
        of CC amplitude equations or keep it as such for analysis purposes.
@@ -169,7 +171,7 @@ SharedWavefunction fvno(SharedWavefunction ref_wfn, Options& options)
     if (analyze_no){
     outfile->Printf("\n New FVNO object now\n");
     std::shared_ptr<FVNO> FVNO_obj1(new FVNO(ref_wfn, psio, options)); 
-    FVNO_obj1->print_ = true;
+    //FVNO_obj1->print_ = true;
     FVNO_obj1->transform_mo_mp2();
     FVNO_obj1->gs_mp2_density_vv();
     FVNO_obj1->preppert(options);

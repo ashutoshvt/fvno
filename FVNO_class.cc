@@ -185,8 +185,10 @@ namespace psi { namespace fvno{
        dpdfile2 Dia, f, f1;
 
        if (options.get_bool("CONSTRUCT_X1")){
-       mints_ = std::shared_ptr<MintsHelper>(new MintsHelper(ref_wfn_->basisset(), options, 0));
-       dipole_ = mints_->ao_dipole();
+
+         mints_ = std::shared_ptr<MintsHelper>(new MintsHelper(ref_wfn_->basisset(), options, 0));
+         dipole_ = mints_->ao_dipole();
+
        for(int p=0; p<3; p++){
          dipole_[p]->transform(C_);
          /* 
@@ -262,6 +264,60 @@ namespace psi { namespace fvno{
          //global_dpd_->file2_mat_print(&f, "outfile");
          global_dpd_->file2_close(&f);
             }
+         }
+
+      if (options.get_str("PROPERTY") == "ROTATION"){
+
+        angmom_ = mints_->so_angular_momentum();
+       for(int p=0; p<3; p++){
+
+         angmom_[p]->transform(C_);
+         lbl = "L" + cart_[p] + "_IJ";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int i=0; i<occ_; i++)
+           for(int j=0; j<occ_; j++)
+             f.matrix[0][i][j] = angmom_[p]->get(i,j);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
+
+         lbl = "L" + cart_[p] + "_AB";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 1, 1, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int a=0; a<vir_; a++)
+           for(int b=0; b<vir_; b++)
+             f.matrix[0][a][b] = angmom_[p]->get(a+occ_,b+occ_);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
+
+         lbl = "L" + cart_[p] + "_IA";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_mat_init(&f);
+         for(int i=0; i<occ_; i++)
+           for(int a=0; a<vir_; a++)
+             f.matrix[0][i][a] = angmom_[p]->get(i, a+occ_);
+         global_dpd_->file2_mat_wrt(&f);
+         global_dpd_->file2_mat_close(&f);
+         global_dpd_->file2_close(&f);
+
+         lbl = "L" + cart_[p] + "_IA";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         lbl = "X_L_" + cart_[p] + "_IA";
+         global_dpd_->file2_copy(&f, PSIF_LIBTRANS_DPD, lbl.c_str());
+         global_dpd_->file2_close(&f);
+
+
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_init(&Dia, PSIF_LIBTRANS_DPD, 0, 0, 1, "Dia");
+         global_dpd_->file2_dirprd(&Dia, &f);
+         global_dpd_->file2_close(&f);
+         global_dpd_->file2_close(&Dia);
+
+
+          }
+
         }
       }
 
@@ -288,7 +344,25 @@ namespace psi { namespace fvno{
          outfile->Printf("\nREAD_X1 OVER\n");
           }
 
+
+
        if(prop_correction_) {
+
+          if (options.get_str("PROPERTY") == "ROTATION"){
+
+          double four_X1L_Mu1 = 0;
+          for(int p=0; p<3; p++){
+            lbl = "Mu" + cart_[p] + "_IA";
+            lbl1 = "X_L_" + cart_[p] + "_IA";
+            global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+            global_dpd_->file2_init(&f1, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl1.c_str());
+            four_X1L_Mu1 += 4.0 * global_dpd_->file2_dot(&f, &f1);
+            global_dpd_->file2_close(&f);
+            global_dpd_->file2_close(&f1);
+           }
+            outfile->Printf("\n 4X1LMu1 -> %20.15lf\n", four_X1L_Mu1);
+           }
+        else { 
          double four_X1_Mu1 = 0;
          for(int p=0; p<3; p++){
            lbl = "Mu" + cart_[p] + "_IA";
@@ -299,108 +373,11 @@ namespace psi { namespace fvno{
            global_dpd_->file2_close(&f);
            global_dpd_->file2_close(&f1);
            }
-         outfile->Printf("\n 4X1Mu1 -> %20.15lf\n", four_X1_Mu1);
+             outfile->Printf("\n 4X1Mu1 -> %20.15lf\n", four_X1_Mu1);
+           }
           }
         }
 
-         /*if(prop_correction_) {
-
-           double value = 0;
-           for(int p=0; p<3; p++){
-
-             // *** Mu * X1 *** /
-
-             lbl = "Mu" + cart_[p] + "_IA";
-             lbl1 = "X_Mu_" + cart_[p] + "_IA";
-             global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
-             global_dpd_->file2_init(&f1, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl1.c_str());
-             value += 4.0 * global_dpd_->file2_dot(&f, &f1);
-             global_dpd_->file2_close(&f);
-             global_dpd_->file2_close(&f1);
-
-
-             / *** L2 * MuBAR * X1 + L2 * MuBAR * X2 ***/
-
-            /*double value1 = 0;
-
-            dpdfile2 xc, mu, X1;
-            global_dpd_->file2_init(&xc, PSIF_LIBTRANS_DPD, 0, 0, 0, "XC_IJ");
-            global_dpd_->file2_init(&mu, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl);
-            global_dpd_->file2_init(&X1, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl1);
-            global_dpd_->contract222(&X1, &mu, &xc, 0, 0, 2.0, 0.0);
-            global_dpd_->file2_close(&X1);
-            global_dpd_->file2_close(&mu);
-            global_dpd_->file2_close(&xc);
-
-            global_dpd_->file2_init(&lt, PSIF_LIBTRANS_DPD, 0, 0, 0, "Lt_IJ");
-            global_dpd_->file2_init(&xc, PSIF_LIBTRANS_DPD, 0, 0, 0, "XC_IJ");
-            value1 += global_dpd_->file2_dot(&lt, &xc);
-            global_dpd_->file2_close(&xc);
-            global_dpd_->file2_close(&lt);
-
-            global_dpd_->buf4_init(&z2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "Z(Ij,Ab) Final");
-            global_dpd_->buf4_scm(&z2, 0);
-            global_dpd_->buf4_close(&z2);
-
-            sprintf(lbl, "X_%s_IA (%5.3f)", pert_x, omega);
-            global_dpd_->file2_init(&X1, PSIF_LIBTRANS_DPD, irrep_x, 0, 1, lbl);
-
-            global_dpd_->buf4_init(&z2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "Z(Ij,Ab) Final");
-
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(Ij,Ab)");
-            sprintf(lbl, "%sBAR_MbIj", pert_c);
-            global_dpd_->buf4_init(&mu2, PSIF_CC_LR, irrep_c, 10, 0, 10, 0, 0, lbl);
-            global_dpd_->contract244(&X1, &mu2, &Z, 0, 0, 1, 1, 0);
-            global_dpd_->buf4_close(&mu2);
-            global_dpd_->buf4_axpy(&Z, &z2, -1);
-            global_dpd_->buf4_sort(&Z, PSIF_CC_TMP1, qpsr, 0, 5, "Z(jI,bA)");
-            global_dpd_->buf4_close(&Z);
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(jI,bA)");
-            global_dpd_->buf4_axpy(&Z, &z2, -1);
-            global_dpd_->buf4_close(&Z);
-
-            global_dpd_->file2_close(&X1);
-
-            sprintf(lbl, "X_%s_IjAb (%5.3f)", pert_x, omega);
-            global_dpd_->buf4_init(&X2, PSIF_CC_LR, irrep_x, 0, 5, 0, 5, 0, lbl);
-
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(Ij,Ab)");
-
-            sprintf(lbl, "%sBAR_AE", pert_c);
-            global_dpd_->file2_init(&mu1, PSIF_LIBTRANS_DPD, irrep_c, 1, 1, lbl);
-            global_dpd_->contract424(&X2, &mu1, &Z, 3, 1, 0, 1, 0);
-            global_dpd_->file2_close(&mu1);
-            global_dpd_->buf4_axpy(&Z, &z2, 1);
-            global_dpd_->buf4_sort(&Z, PSIF_CC_TMP1, qpsr, 0, 5, "Z(jI,bA)");
-            global_dpd_->buf4_close(&Z);
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(jI,bA)");
-            global_dpd_->buf4_axpy(&Z, &z2, 1);
-            global_dpd_->buf4_close(&Z);
-
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(Ij,Ab)");
-
-            sprintf(lbl, "%sBAR_MI", pert_c);
-            global_dpd_->file2_init(&mu1, PSIF_LIBTRANS_DPD, irrep_c, 0, 0, lbl);
-            global_dpd_->contract244(&mu1, &X2, &Z, 0, 0, 0, 1, 0);
-            global_dpd_->file2_close(&mu1);
-            global_dpd_->buf4_axpy(&Z, &z2, -1);
-            global_dpd_->buf4_sort(&Z, PSIF_CC_TMP1, qpsr, 0, 5, "Z(jI,bA)");
-            global_dpd_->buf4_close(&Z);
-            global_dpd_->buf4_init(&Z, PSIF_CC_TMP1, 0, 0, 5, 0, 5, 0, "Z(jI,bA)");
-            global_dpd_->buf4_axpy(&Z, &z2, -1);
-            global_dpd_->buf4_close(&Z);
-
-            global_dpd_->buf4_close(&X2);
-
-            global_dpd_->buf4_init(&l2, PSIF_CC_LAMPS, 0, 0, 5, 0, 5, 0, "2 LIjAb - LIjBa");
-            polar += global_dpd_->buf4_dot(&l2, &z2);
-            global_dpd_->buf4_close(&l2);
-
-            global_dpd_->buf4_close(&z2);
-
-           }
-         outfile->Printf("\n 4X1Mu1 -> %20.15lf\n", value);
-          }  */
 
     void FVNO::pert_density_vv(Options & options){
 
@@ -416,15 +393,17 @@ namespace psi { namespace fvno{
        pert_density_singles_ = SharedMatrix(new Matrix("singles perturbed density MO basis (vir-vir)", vir_, vir_));
        pert_density_doubles_ = SharedMatrix(new Matrix("doubles perturbed density MO basis (vir-vir)", vir_, vir_));
  
-       outfile->Printf("\nConstructing singles contribution to pert_density\n");
-       for(int p=0; p<3; p++){
+       
+       if (options.get_str("PROPERTY") == "POLARIZABILITY"){
+
+        for(int p=0; p<3; p++){
          lbl = "X_Mu_" + cart_[p] + "_IA"; // hard-coded for "mu"
-         lbl1 = "tmp_mu" + cart_[p] + "_IA"; 
+         lbl1 = "tmp_mu" + cart_[p] + "_IA";
          global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
          global_dpd_->file2_copy(&f, PSIF_LIBTRANS_DPD, lbl1.c_str());
          global_dpd_->file2_close(&f);
          }
-        
+
 
        global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_singles(a,b)");
        for(int p=0; p<3; p++){
@@ -437,6 +416,29 @@ namespace psi { namespace fvno{
          global_dpd_->file2_close(&fc);
        }
        global_dpd_->file2_close(&D);
+       } 
+
+       if (options.get_str("PROPERTY") == "ROTATION"){
+        for(int p=0; p<3; p++){
+         lbl = "X_L_" + cart_[p] + "_IA"; // hard-coded for "mu"
+         lbl1 = "tmp_X_L" + cart_[p] + "_IA";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_copy(&f, PSIF_LIBTRANS_DPD, lbl1.c_str());
+         global_dpd_->file2_close(&f);
+         }
+       
+       global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_singles(a,b)");
+       for(int p=0; p<3; p++){
+         lbl = "X_L_" + cart_[p] + "_IA"; // hard-coded for "mu"
+         lbl1 = "tmp_X_L_" + cart_[p] + "_IA";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl.c_str());
+         global_dpd_->file2_init(&fc, PSIF_LIBTRANS_DPD, 0, 0, 1, lbl1.c_str());
+         global_dpd_->contract222(&f, &fc, &D, 1, 1, 1, 1);
+         global_dpd_->file2_close(&f);
+         global_dpd_->file2_close(&fc);
+       }
+       global_dpd_->file2_close(&D);
+       }
 
         
         global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1,"d_pert_singles(a,b)");
@@ -454,6 +456,7 @@ namespace psi { namespace fvno{
 
         /* Doubles contribution to pert_density */
          
+       pert_density_order_ = options.get_int("PERT_DENSITY_ORDER") ;
 
        for(int p=0; p<3; p++){
          lbl = "Mu" + cart_[p] + "_IjAb";
@@ -490,35 +493,98 @@ namespace psi { namespace fvno{
          global_dpd_->buf4_sort_axpy(&fbar, PSIF_LIBTRANS_DPD, pqsr, 0, 5, lbl.c_str(), -1);
          global_dpd_->buf4_close(&fbar);
 
-         pert_density_order_ = options.get_bool("PERT_DENSITY_ORDER") ;
+         if (options.get_str("PROPERTY") == "POLARIZABILITY"){
+           if (pert_density_order_ == 1){
+             global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "2 tIjAb - tIjBa (MP2)");
+             global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_doubles(a,b)");
+             lbl = "Mu" + cart_[p] + "_XIjAb (MP2)";
+             global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+             global_dpd_->contract442(&t2, &fbar, &D, 2, 2, 2.0, 1);
+             global_dpd_->buf4_close(&fbar);
+             global_dpd_->buf4_close(&t2);
+             global_dpd_->file2_close(&D);
+           }
+           if (pert_density_order_ == 2){
+             global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_doubles(a,b)");
+             lbl = "Mu" + cart_[p] + "_XIjAb (MP2)";
+             lbl1 = "2 Mu" + cart_[p] + "_XIjAb (MP2)" + " - Mu" + cart_[p] + "_XIjBa (MP2)";
+             global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+             global_dpd_->buf4_init(&fbar1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl1.c_str());
+             global_dpd_->contract442(&fbar1, &fbar, &D, 2, 2, 2.0, 1); 
+             global_dpd_->buf4_close(&fbar);
+             global_dpd_->buf4_close(&fbar1);
+             global_dpd_->file2_close(&D);
+           }
+        }
+
+
+      if (options.get_str("PROPERTY") == "ROTATION"){
+
+         lbl = "L" + cart_[p] + "_IjAb";
+         global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+
+         lbl = "L" + cart_[p] + "_AB";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 1, 1, lbl.c_str());
+         global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
+         global_dpd_->contract424(&t2, &f, &fbar, 3, 1, 0, 1, 0);
+         global_dpd_->contract244(&f, &t2, &fbar, 1, 2, 1, 1, 1);
+         global_dpd_->buf4_close(&t2);
+         global_dpd_->file2_close(&f);
+
+         lbl = "L" + cart_[p] + "_IJ";
+         global_dpd_->file2_init(&f, PSIF_LIBTRANS_DPD, 0, 0, 0, lbl.c_str());
+         global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "tIjAb (MP2)");
+         global_dpd_->contract424(&t2, &f, &fbar, 1, 0, 1, -1, 1);
+         global_dpd_->contract244(&f, &t2, &fbar, 0, 0, 0, -1, 1);
+         global_dpd_->buf4_close(&t2);
+         global_dpd_->file2_close(&f);
+
+         global_dpd_->buf4_init(&Dijab, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "Dijab");
+         global_dpd_->buf4_dirprd(&Dijab, &fbar);
+         global_dpd_->buf4_close(&Dijab);
+
+         lbl = "L" + cart_[p] + "_XIjAb (MP2)";
+         global_dpd_->buf4_copy(&fbar, PSIF_LIBTRANS_DPD , lbl.c_str());
+         global_dpd_->buf4_close(&fbar);
+
+
+         global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+         lbl = "2 L" + cart_[p] + "_XIjAb (MP2)" + " - L" + cart_[p] + "_XIjBa (MP2)";
+         global_dpd_->buf4_scmcopy(&fbar, PSIF_LIBTRANS_DPD, lbl.c_str(), 2);
+         global_dpd_->buf4_sort_axpy(&fbar, PSIF_LIBTRANS_DPD, pqsr, 0, 5, lbl.c_str(), -1);
+         global_dpd_->buf4_close(&fbar);
+
 
          if (pert_density_order_ == 1){
 
          global_dpd_->buf4_init(&t2, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, "2 tIjAb - tIjBa (MP2)");
          global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_doubles(a,b)");
-         lbl = "Mu" + cart_[p] + "_XIjAb (MP2)";
+         lbl = "L" + cart_[p] + "_XIjAb (MP2)";
          global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
          global_dpd_->contract442(&t2, &fbar, &D, 2, 2, 2.0, 1);
          global_dpd_->buf4_close(&fbar);
          global_dpd_->buf4_close(&t2);
          global_dpd_->file2_close(&D);
-
          }
+
 
          if (pert_density_order_ == 2){
 
          global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1, "d_pert_doubles(a,b)");
-         lbl = "Mu" + cart_[p] + "_XIjAb (MP2)";
-         lbl1 = "2 Mu" + cart_[p] + "_XIjAb (MP2)" + " - Mu" + cart_[p] + "_XIjBa (MP2)";
+         lbl = "L" + cart_[p] + "_XIjAb (MP2)";
+         //global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+         //global_dpd_->buf4_print(&fbar, "outfile", 1);
+         //global_dpd_->buf4_close(&fbar);
          global_dpd_->buf4_init(&fbar, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
-         global_dpd_->buf4_init(&fbar1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl1.c_str());
-         global_dpd_->contract442(&fbar1, &fbar, &D, 2, 2, 2.0, 1); 
+         lbl = "2 L" + cart_[p] + "_XIjAb (MP2)" + " - L" + cart_[p] + "_XIjBa (MP2)";
+         //lbl = "2 Mu" + cart_[p] + "_XIjAb (MP2)" + " - Mu" + cart_[p] + "_XIjBa (MP2)";
+         global_dpd_->buf4_init(&fbar1, PSIF_LIBTRANS_DPD, 0, 0, 5, 0, 5, 0, lbl.c_str());
+         global_dpd_->contract442(&fbar1, &fbar, &D, 2, 2, 2.0, 1);
          global_dpd_->buf4_close(&fbar);
          global_dpd_->buf4_close(&fbar1);
          global_dpd_->file2_close(&D);
-
          }
-
+         }
          }
 
          global_dpd_->file2_init(&D, PSIF_LIBTRANS_DPD, 0, 1, 1,"d_pert_doubles(a,b)");
@@ -529,6 +595,8 @@ namespace psi { namespace fvno{
              pert_density_doubles_->set(a,b,D.matrix[0][a][b]);
          global_dpd_->file2_mat_close(&D);
          global_dpd_->file2_close(&D);
+
+        pert_density_doubles_->print();
 
         if (print_){
 
@@ -602,7 +670,7 @@ namespace psi { namespace fvno{
           }
         }
 
-    void FVNO::truncate_VNOs(){
+    void FVNO::truncate_VNOs(Options& options){
     
         /* [CVMO : Canonical virtual MOs] [VNO: Virtual Natural orbitals]  [ONs: Occupation numbers] 
            I would like to gather the density matrix from the dpd structute here inside this function 
@@ -619,7 +687,10 @@ namespace psi { namespace fvno{
         
         /* sort the VNOs based on their absolute values of eigenvalues */
 
-         if (pert_density_order_ == 1){
+          bool rotation = (options.get_str("PROPERTY") == "ROTATION");
+          pert_density_order_ = options.get_int("PERT_DENSITY_ORDER");
+
+         if (pert_density_order_ == 1 || rotation){
 
          SharedMatrix No_temp(new Matrix("temporary matrix (full NO) ",vir_,vir_));
          SharedVector indx(new Vector("index for occupation numbers",vir_));

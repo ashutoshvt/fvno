@@ -27,13 +27,14 @@ public:
     bool semicanonical_basis_;
     bool canonical_basis_;
     bool prop_correction_;
-    bool pert_density_order_;
+    int pert_density_order_;
     Options options_;
     SharedWavefunction ref_wfn_;
     std::shared_ptr<PSIO> psio_;
     IntegralTransform * ints_;
     std::shared_ptr<MintsHelper> mints_;
     std::vector<SharedMatrix> dipole_;
+    std::vector<SharedMatrix> angmom_;
     std::vector<std::string> cart_;
     SharedVector epsilon_;
     SharedMatrix C_;
@@ -52,7 +53,7 @@ public:
     void gs_mp2_density_vv();
     void pert_density_vv(Options & options);
     void final_density(Options& options);
-    void truncate_VNOs();
+    void truncate_VNOs(Options& options);
     void final_basis();
 
 };
