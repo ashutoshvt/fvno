@@ -56,7 +56,8 @@ namespace psi { namespace fvno{
         std::vector<std::shared_ptr<MOSpace> > spaces;
         spaces.push_back(MOSpace::occ);
         spaces.push_back(MOSpace::vir);
-        ints_ = new IntegralTransform(ref_wfn_, spaces, IntegralTransform::Restricted, IntegralTransform::DPDOnly);
+        //ints_ = new IntegralTransform(ref_wfn_, spaces, IntegralTransform::Restricted, IntegralTransform::DPDOnly); // old_version of psi4
+        ints_ = new IntegralTransform(ref_wfn_, spaces, IntegralTransform::TransformationType::Restricted, IntegralTransform::OutputType::DPDOnly); // new_version of psi4
         ints_->set_keep_iwl_so_ints(true);
         ints_->transform_tei(MOSpace::occ, MOSpace::vir, MOSpace::occ, MOSpace::vir);
 
