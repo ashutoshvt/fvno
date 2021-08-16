@@ -10,3 +10,4 @@ these three steps to compile and run this plugin in your top directory.
 1. `psi4 --compile-plugin` 
 2. make
 3. psi4
+.
